@@ -229,15 +229,14 @@ async function process() {
 
   isProcessing = true;
 
-  const messages = await (async () => {
-    try {
-      const res = await getMessages();
-      return res;
-    } catch (error) {
-      console.error(error);
-      return undefined;
-    }
-  })();
+  let messages: IMessagesList[] | undefined;
+  try {
+    messages = await getMessages();
+  } catch (error) {
+    console.error(error);
+    isProcessing = false;
+    return;
+  }
 
   log({ messages });
   if (!messages || messages.length === 0) {
@@ -285,31 +284,37 @@ async function process() {
     {} as IGroup
   );
 
-  Object.entries(grouped).forEach(async ([inboxName, messages]) => {
-    await insertMessages(todayJournalPage[0].name, inboxName, messages);
-  });
-
-  logseq.UI.showMsg("[Inbox Telegram] Messages added to inbox", "success");
-
-  const uniqueChats = [...new Set(messages.map((item) => item.chatId))];
-  const newInboxByChat = inboxByChat.slice();
-  uniqueChats.forEach(async (chatId) => {
-    const obj = inboxByChat.find(
-      (item: { chatId: number }) => item.chatId === chatId
-    );
-    if (!obj) {
-      newInboxByChat.push({
-        chatId,
-        inboxName: defaultInboxName,
-      });
+  try {
+    for (const [inboxName, messages] of Object.entries(grouped)) {
+      await insertMessages(todayJournalPage[0].name, inboxName, messages);
     }
-  });
 
-  await logseq.updateSettings({
-    inboxByChat: newInboxByChat,
-  });
+    logseq.UI.showMsg("[Inbox Telegram] Messages added to inbox", "success");
 
-  await deleteMessages(messages);
+    const uniqueChats = [...new Set(messages.map((item) => item.chatId))];
+    const newInboxByChat = inboxByChat.slice();
+    uniqueChats.forEach((chatId) => {
+      const obj = inboxByChat.find(
+        (item: { chatId: number }) => item.chatId === chatId
+      );
+      if (!obj) {
+        newInboxByChat.push({
+          chatId,
+          inboxName: defaultInboxName,
+        });
+      }
+    });
+
+    await logseq.updateSettings({
+      inboxByChat: newInboxByChat,
+    });
+
+    await deleteMessages(messages);
+  } catch (error) {
+    console.error(error);
+  } finally {
+    isProcessing = false;
+  }
 }
 
 async function insertMessages(
@@ -337,6 +342,7 @@ async function insertMessages(
   }
 
   log({ targetBlock, inboxBlock, blocks, params });
+  // throw new Error("Test error after parsing messages");
   await logseq.Editor.insertBatchBlock(targetBlock, blocks, params);
 
   isProcessing = false;
