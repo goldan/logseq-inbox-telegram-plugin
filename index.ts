@@ -34,6 +34,7 @@ interface IUpdate {
 interface IMessagesList {
   chatId: number;
   text: string;
+  message_id: number;
 }
 
 interface IGroup {
@@ -307,6 +308,8 @@ async function process() {
   await logseq.updateSettings({
     inboxByChat: newInboxByChat,
   });
+
+  await deleteMessages(messages);
 }
 
 async function insertMessages(
@@ -457,6 +460,7 @@ function getMessages(): Promise<IMessagesList[] | undefined> {
               messages.push({
                 chatId: element.message.chat.id,
                 text,
+                message_id: element.message.message_id,
               });
             }
 
@@ -483,6 +487,7 @@ function getMessages(): Promise<IMessagesList[] | undefined> {
               messages.push({
                 chatId: element.channel_post.chat.id,
                 text,
+                message_id: element.channel_post.message_id,
               });
             }
           });
@@ -505,6 +510,22 @@ function getMessages(): Promise<IMessagesList[] | undefined> {
         reject(error);
       });
   });
+}
+
+async function deleteMessages(messages: IMessagesList[]) {
+  const botToken = logseq.settings!.botToken;
+
+  for (const message of messages) {
+    try {
+      await axios.post(`https://api.telegram.org/bot${botToken}/deleteMessage`, {
+        chat_id: message.chatId,
+        message_id: message.message_id
+      });
+      log(`Message ${message.message_id} deleted from chat ${message.chatId}`);
+    } catch (error) {
+      console.error(`Failed to delete message ${message.message_id} from chat ${message.chatId}`, error);
+    }
+  }
 }
 
 // bootstrap
