@@ -15,7 +15,8 @@
   "dependencies": {
     "@logseq/libs": "^0.0.14",
     "axios": "^1.3.2",
-    "dayjs": "^1.11.7"
+    "dayjs": "^1.11.7",
+    "yarn": "^1.22.22"
   },
   "logseq": {
     "main": "dist/index.html",

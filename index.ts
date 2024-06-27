@@ -324,27 +324,16 @@ async function insertMessages(
   const blocks = messages.map((message) => ({ content: message }));
   const params = {
     sibling: false,
-    before: true
+    before: false
   };
 
   let targetBlock = inboxBlock.uuid;
- 
-  if (logseq.settings!.invertMessagesOrder) {
-    const inboxBlockTree = await logseq.Editor.getBlock(inboxBlock.uuid, { includeChildren: true });
-    if (inboxBlockTree && inboxBlockTree.children && inboxBlockTree?.children?.length > 0) {
-      const block = inboxBlockTree?.children[inboxBlockTree?.children?.length - 1] as BlockEntity
-      if (block && block.uuid) {
-        targetBlock = block.uuid
-        params.sibling = true
-      }
-    }
-  }
 
   if (inboxName === null || inboxName === "null") {
     params.sibling = true;
   }
 
-  log({ inboxBlock, blocks, params });
+  log({ targetBlock, inboxBlock, blocks, params });
   await logseq.Editor.insertBatchBlock(targetBlock, blocks, params);
 
   isProcessing = false;
@@ -356,11 +345,18 @@ async function checkInbox(pageName: string, inboxName: string | null) {
 
   if (inboxName === null || inboxName === "null") {
     log("No group");
-    return pageBlocksTree[0];
+    for (let i = pageBlocksTree.length - 1; i >= 0; i--) {
+      const block = pageBlocksTree[i];
+      if (block.level == 1) {
+        console.log("Last Top-Level Block:", block);
+        return block;
+      }
+    }
   }
 
   let inboxBlock;
   inboxBlock = pageBlocksTree.find((block: { content: string }) => {
+    log({block})
     return block.content === inboxName;
   });
 
