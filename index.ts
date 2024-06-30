@@ -329,21 +329,54 @@ async function insertMessages(
     return;
   }
 
-  const blocks = messages.map((message) => ({ content: message }));
   const params = {
     sibling: false,
     before: (inboxBlock.content == ""),
   };
 
-  let targetBlock = inboxBlock.uuid;
+  let targetBlock = inboxBlock;
 
   if (inboxName === null || inboxName === "null") {
     params.sibling = true;
   }
 
-  log({ targetBlock, inboxBlock, blocks, params });
+  log({ targetBlock, inboxBlock, params });
 
-  await logseq.Editor.insertBatchBlock(targetBlock, blocks, params);
+  for (const message of messages) {
+    const lines = message.split('\n');
+    let isFirstLine = true;
+    let new_root = true;
+    let prev_block = targetBlock;
+    let cur_root = targetBlock;
+    let first_child = true;
+
+    for (const line of lines) {
+      if (line.trim() === "") {
+        new_root = true;
+      } else {
+        let sibling = isFirstLine ? params.sibling : (new_root || !first_child);
+        let before = isFirstLine ? params.before : false;
+
+        log({ prev_block, line, sibling, before });
+
+        let parent = new_root ? cur_root : prev_block;
+
+        const newBlock = await logseq.Editor.insertBlock(
+          parent.uuid, line, { sibling: sibling, before: before });
+
+        prev_block = newBlock;
+        if (new_root) {
+          cur_root = newBlock;
+          new_root = false;
+          first_child = true;
+        }
+        else {
+          first_child = false;
+        }
+        isFirstLine = false;
+      }
+    }
+  }
 
   isProcessing = false;
 }
